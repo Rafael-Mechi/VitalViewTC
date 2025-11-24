@@ -46,7 +46,7 @@ public class Main implements RequestHandler<S3Event, String> {
                         metadata
                 );
             } else if (sourceKey.contains("processos")) {
-                DESTINATION_BUCKET = "bucket-client-vw/suporte/micro";
+                destino = "suporte/micro/" + sourceKey;
                 //...
             }
             return "Processado com sucesso: " + sourceKey;

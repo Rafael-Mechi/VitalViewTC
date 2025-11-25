@@ -6,6 +6,14 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.lambda.runtime.events.S3Event;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 public class Main implements RequestHandler<S3Event, String> {
     private final AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
@@ -48,7 +56,70 @@ public class Main implements RequestHandler<S3Event, String> {
             } else if (sourceKey.contains("processos")) {
                 destino = "suporte/micro/" + sourceKey;
                 //...
+
+            } else if (sourceKey.contains("principal")) {
+                context.getLogger().log("Processando JSON de REDE (arquivo principal)...");
+
+                Path origemTmp = Paths.get("/tmp/saida.json");
+
+                Files.copy(
+                        s3Object.getObjectContent(),
+                        origemTmp,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                );
+
+                context.getLogger().log("Arquivo bruto salvo em /tmp/saida.json");
+
+                String jsonStr = Files.readString(origemTmp);
+                JSONArray jsonArrayOriginal = new JSONArray(jsonStr);
+
+                JSONObject ultimo = jsonArrayOriginal.getJSONObject(jsonArrayOriginal.length() - 1);
+
+                List<String> camposRede = List.of(
+                        "Net_Down_(Mbps)",
+                        "Net_Up_(Mbps)",
+                        "Pacotes_IN_(intervalo)",
+                        "Pacotes_OUT_(intervalo)",
+                        "Perda_de_Pacotes_(%)",
+                        "Conexões_TCP_ESTABLISHED",
+                        "Latencia_(ms)"
+                );
+
+                JSONObject filtrado = new JSONObject();
+                filtrado.put("Nome_da_Maquina", ultimo.get("Nome_da_Maquina"));
+                filtrado.put("Data_da_Coleta", ultimo.get("Data_da_Coleta"));
+
+                for (String campo : camposRede) {
+                    if (ultimo.has(campo)) {
+                        filtrado.put(campo, ultimo.get(campo));
+                    }
+                }
+
+                // Nome final
+                String nomeFinal = sourceKey.replace("_principal", "");
+                if (!nomeFinal.endsWith(".json")) nomeFinal += ".json";
+
+                Path destinoTmp = Paths.get("/tmp/" + nomeFinal);
+                Files.writeString(destinoTmp, filtrado.toString(2));
+
+                context.getLogger().log("JSON filtrado salvo em: /tmp/" + nomeFinal);
+
+                String caminhoFinal = "suporte/micro/rede/" + nomeFinal;
+
+                ObjectMetadata metadata = new ObjectMetadata();
+                metadata.setContentType("application/json");
+                metadata.setContentLength(Files.size(destinoTmp));
+
+                s3Client.putObject(
+                        DESTINATION_BUCKET,
+                        caminhoFinal,
+                        new FileInputStream(destinoTmp.toFile()),
+                        metadata
+                );
+
+                context.getLogger().log("JSON de rede enviado para: " + caminhoFinal);
             }
+
             return "Processado com sucesso: " + sourceKey;
         }
 

@@ -118,6 +118,47 @@ public class Main implements RequestHandler<S3Event, String> {
                 );
 
                 context.getLogger().log("JSON de rede enviado para: " + caminhoFinal);
+
+                // IMPLEMENTANDO DASHBOARD MACRO COMPONENTES
+                // Processamento para Componentes (Dashboard Macro)
+                List<String> camposComponentes = List.of(
+                        "Uso_de_Cpu",
+                        "Uso_de_RAM",
+                        "Uso_de_Disco"
+                );
+
+                JSONObject filtradoComponentes = new JSONObject();
+                filtradoComponentes.put("Nome_da_Maquina", ultimo.get("Nome_da_Maquina"));
+                filtradoComponentes.put("Data_da_Coleta", ultimo.get("Data_da_Coleta"));
+
+                for (String campo : camposComponentes) {
+                    if (ultimo.has(campo)) {
+                        filtradoComponentes.put(campo, ultimo.get(campo));
+                    }
+                }
+
+                String nomeComponentes = sourceKey.replace("_principal", "_componentes");
+                if (!nomeComponentes.endsWith(".json")) nomeComponentes += ".json";
+
+                Path destinoComponentesTmp = Paths.get("/tmp/" + nomeComponentes);
+                Files.writeString(destinoComponentesTmp, filtradoComponentes.toString(2));
+
+                context.getLogger().log("JSON de componentes salvo em: /tmp/" + nomeComponentes);
+
+                String caminhoComponentesFinal = "suporte/macro/componentes/" + nomeComponentes;
+
+                ObjectMetadata metadataComponentes = new ObjectMetadata();
+                metadataComponentes.setContentType("application/json");
+                metadataComponentes.setContentLength(Files.size(destinoComponentesTmp));
+
+                s3Client.putObject(
+                        DESTINATION_BUCKET,
+                        caminhoComponentesFinal,
+                        new FileInputStream(destinoComponentesTmp.toFile()),
+                        metadataComponentes
+                );
+
+                context.getLogger().log("JSON de componentes enviado para: " + caminhoComponentesFinal);
             }
 
             return "Processado com sucesso: " + sourceKey;

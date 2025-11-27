@@ -160,6 +160,25 @@ public class Main implements RequestHandler<S3Event, String> {
 
                 context.getLogger().log("JSON de componentes enviado para: " + caminhoComponentesFinal);
             }
+        else if (sourceKey.contains("previsoes")) {
+                context.getLogger().log("Entrei no if que contém previsoes");
+
+                destino = "analista/analista/" + sourceKey;
+
+                // 4. enviar pro bucket client
+                ObjectMetadata metadata = new ObjectMetadata();
+                metadata.setContentType("application/json");
+
+                context.getLogger().log("Enviando json previsoes bucket client");
+
+                s3Client.putObject(
+                        DESTINATION_BUCKET,
+                        destino,
+                        s3Object.getObjectContent(),
+                        metadata
+                );
+            }
+
 
             return "Processado com sucesso: " + sourceKey;
         }

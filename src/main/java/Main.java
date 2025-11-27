@@ -163,7 +163,7 @@ public class Main implements RequestHandler<S3Event, String> {
         else if (sourceKey.contains("previsoes")) {
                 context.getLogger().log("Entrei no if que contém previsoes");
 
-                destino = "analista/analista/" + sourceKey;
+                destino = "analista/previsoes/" + sourceKey;
 
                 // 4. enviar pro bucket client
                 ObjectMetadata metadata = new ObjectMetadata();

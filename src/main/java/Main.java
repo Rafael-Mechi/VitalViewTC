@@ -219,6 +219,54 @@ public class Main implements RequestHandler<S3Event, String> {
                 );
 
                 context.getLogger().log("JSON de componentes enviado para: " + caminhoSuporteMicro);
+
+
+                // IMPLEMENTANDO DASHBOARD DISCO
+                List<String> camposDisco = List.of(
+                        "Disco_livre_(bytes)",
+                        "Disco_latencia_leitura",
+                        "Uso_de_Disco",
+                        "Disco_usado_(bytes)",
+                        "Disco_taxa_leitura_mbs",
+                        "Disco_latencia_escrita",
+                        "Disco_taxa_escrita_mbs",
+                        "Disco_total_(bytes)"
+                );
+
+                JSONObject filtradoDisco = new JSONObject();
+                filtradoDisco.put("Nome_da_Maquina", ultimo.get("Nome_da_Maquina"));
+                filtradoDisco.put("Data_da_Coleta", ultimo.get("Data_da_Coleta"));
+
+                for (String campo : camposDisco) {
+                    if (ultimo.has(campo)) {
+                        filtradoDisco.put(campo, ultimo.get(campo));
+                    }
+                }
+
+                // nome final
+                String nomeDisco = sourceKey.replace("_principal", "_disco");
+                if (!nomeDisco.endsWith(".json")) nomeDisco += ".json";
+
+                Path destinoDiscoTmp = Paths.get("/tmp/" + nomeDisco);
+                Files.writeString(destinoDiscoTmp, filtradoDisco.toString(2));
+
+                context.getLogger().log("JSON de disco salvo em: /tmp/" + nomeDisco);
+
+                String caminhoDiscoFinal = "suporte/disco/" + nomeDisco;
+
+                ObjectMetadata metadataDisco = new ObjectMetadata();
+                metadataDisco.setContentType("application/json");
+                metadataDisco.setContentLength(Files.size(destinoDiscoTmp));
+
+                s3Client.putObject(
+                        DESTINATION_BUCKET,
+                        caminhoDiscoFinal,
+                        new FileInputStream(destinoDiscoTmp.toFile()),
+                        metadataDisco
+                );
+
+                context.getLogger().log("JSON de disco enviado para: " + caminhoDiscoFinal);
+
             }
         else if (sourceKey.contains("previsoes")) {
                 context.getLogger().log("Entrei no if que contém previsoes");

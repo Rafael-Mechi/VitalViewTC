@@ -54,8 +54,19 @@ public class Main implements RequestHandler<S3Event, String> {
                         metadata
                 );
             } else if (sourceKey.contains("processos")) {
+                context.getLogger().log("Entrei no if que contém processos");
+
                 destino = "suporte/micro/" + sourceKey;
-                //...
+
+                ObjectMetadata metadata = new ObjectMetadata();
+                metadata.setContentType("application/json");
+
+                s3Client.putObject(
+                        DESTINATION_BUCKET,
+                        destino,
+                        s3Object.getObjectContent(),
+                        metadata
+                );
 
             } else if (sourceKey.contains("principal")) {
                 context.getLogger().log("Processando JSON de REDE (arquivo principal)...");
@@ -104,7 +115,7 @@ public class Main implements RequestHandler<S3Event, String> {
 
                 context.getLogger().log("JSON filtrado salvo em: /tmp/" + nomeFinal);
 
-                String caminhoFinal = "suporte/micro/rede/" + nomeFinal;
+                String caminhoFinal = "suporte/rede/" + nomeFinal;
 
                 ObjectMetadata metadata = new ObjectMetadata();
                 metadata.setContentType("application/json");
@@ -159,6 +170,55 @@ public class Main implements RequestHandler<S3Event, String> {
                 );
 
                 context.getLogger().log("JSON de componentes enviado para: " + caminhoComponentesFinal);
+
+                // IMPLEMENTANDO DASHBOARD MICRO SUPORTE
+                // Processamento para Componentes (Dashboard Macro)
+                List<String> listaDadosSuporteMicro = List.of(
+                        "Uso_de_RAM",
+                        "Uso_de_Cpu",
+                        "Uso_de_Disco",
+                        "Uptime_(s)",
+                        "Disco_usado_(bytes)",
+                        "Disco_livre_(bytes)",
+                        "Disco_total_(bytes)",
+                        "RAM_total_(bytes)",
+                        "RAM_usada_(bytes)",
+                        "Nome_da_Maquina",
+                        "Data_da_Coleta"
+                );
+
+                JSONObject dadosFiltrados = new JSONObject();
+                dadosFiltrados.put("Nome_da_Maquina", ultimo.get("Nome_da_Maquina"));
+                dadosFiltrados.put("Data_da_Coleta", ultimo.get("Data_da_Coleta"));
+
+                for (String campo : listaDadosSuporteMicro) {
+                    if (ultimo.has(campo)) {
+                        dadosFiltrados.put(campo, ultimo.get(campo));
+                    }
+                }
+
+                String nomeArquivo = sourceKey;
+                if (!nomeArquivo.endsWith(".json")) nomeArquivo += ".json";
+
+                Path destinoSuporteMicroTemp = Paths.get("/tmp/" + nomeArquivo);
+                Files.writeString(destinoSuporteMicroTemp, dadosFiltrados.toString(2));
+
+                context.getLogger().log("JSON de componentes salvo em: /tmp/" + nomeArquivo);
+
+                String caminhoSuporteMicro = "suporte/micro/" + nomeArquivo;
+
+                ObjectMetadata metadataSuporteMicro = new ObjectMetadata();
+                metadataSuporteMicro.setContentType("application/json");
+                metadataSuporteMicro.setContentLength(Files.size(destinoSuporteMicroTemp));
+
+                s3Client.putObject(
+                        DESTINATION_BUCKET,
+                        caminhoSuporteMicro,
+                        new FileInputStream(destinoSuporteMicroTemp.toFile()),
+                        metadataSuporteMicro
+                );
+
+                context.getLogger().log("JSON de componentes enviado para: " + caminhoSuporteMicro);
             }
         else if (sourceKey.contains("previsoes")) {
                 context.getLogger().log("Entrei no if que contém previsoes");

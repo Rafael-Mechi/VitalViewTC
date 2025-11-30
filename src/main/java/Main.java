@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.lambda.runtime.events.S3Event;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.FileInputStream;
 import java.nio.file.Files;
@@ -82,7 +83,18 @@ public class Main implements RequestHandler<S3Event, String> {
                 context.getLogger().log("Arquivo bruto salvo em /tmp/saida.json");
 
                 String jsonStr = Files.readString(origemTmp);
-                JSONArray jsonArrayOriginal = new JSONArray(jsonStr);
+
+                Object jsonLido = new JSONTokener(jsonStr).nextValue();
+                JSONArray jsonArrayOriginal;
+
+                if (jsonLido instanceof JSONArray) {
+                    jsonArrayOriginal = (JSONArray) jsonLido;
+                } else if (jsonLido instanceof JSONObject) {
+                    jsonArrayOriginal = new JSONArray();
+                    jsonArrayOriginal.put((JSONObject) jsonLido);
+                } else {
+                    jsonArrayOriginal = new JSONArray();
+                }
 
                 JSONObject ultimo = jsonArrayOriginal.getJSONObject(jsonArrayOriginal.length() - 1);
 
@@ -105,12 +117,16 @@ public class Main implements RequestHandler<S3Event, String> {
                     }
                 }
 
+                JSONArray arrayFinal = new JSONArray();
+                arrayFinal.put(filtrado);
+
                 // Nome final
                 String nomeFinal = sourceKey.replace("_principal", "");
                 if (!nomeFinal.endsWith(".json")) nomeFinal += ".json";
 
                 Path destinoTmp = Paths.get("/tmp/" + nomeFinal);
-                Files.writeString(destinoTmp, filtrado.toString(2));
+
+                Files.writeString(destinoTmp, arrayFinal.toString(2));
 
                 context.getLogger().log("JSON filtrado salvo em: /tmp/" + nomeFinal);
 

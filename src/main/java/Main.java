@@ -97,7 +97,6 @@ public class Main implements RequestHandler<S3Event, String> {
                 );
 
                 JSONObject filtrado = new JSONObject();
-                filtrado.put("Nome_da_Maquina", ultimo.get("Nome_da_Maquina"));
                 filtrado.put("Data_da_Coleta", ultimo.get("Data_da_Coleta"));
 
                 for (String campo : camposRede) {
